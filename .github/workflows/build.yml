@@ -1,0 +1,49 @@
+name: Build Flutter App
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.x'
+          channel: 'stable'
+      
+      # 在apps目录中运行Flutter命令
+      - name: Get Flutter dependencies
+        working-directory: ./apps
+        run: flutter pub get
+        
+      # 创建平台特定文件
+      - name: Create platform-specific files
+        working-directory: ./apps
+        run: |
+          flutter create --platforms=android .
+          ls -la
+        
+      # 构建未签名APK
+      - name: Build unsigned APK
+        working-directory: ./apps
+        run: flutter build apk --release --no-shrink
+        
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: apps/build/app/outputs/flutter-apk/app-release.apk
+          
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: ncipollo/release-action@v1.13.0
+        with:
+          artifacts: "apps/build/app/outputs/flutter-apk/app-release.apk"
+          token: ${{ secrets.GITHUB_TOKEN }} 
